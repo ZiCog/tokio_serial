@@ -6,6 +6,9 @@ mod protobuf_experiment;
 mod serial_port_test;
 use serial_port_test::{list_serial_ports, serial_port_test};
 
+mod crc;
+mod hdlc_ffi;
+
 /// Simple program to test a serial ports
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about)]
@@ -55,16 +58,16 @@ async fn main() {
 use colored::Colorize;
 fn conveqs_banner() {
     // Doom font (tweaked) from:  https://patorjk.com/software/taag/#p=display&f=Graffiti&t=Conveqs
-    const BANNER_TOP: &str = r#"         _____                                     _____       
+    const BANNER_TOP: &str = r"         _____                                     _____       
         /  __ \                                   |  _  |      
         | /  \/ ___  _ ____   _____  __ _ ___     | | | |_   _ 
-        | |    / _ \| '_ \ \ / / _ \/ _` / __|    | | | | | | |"#;
+        | |    / _ \| '_ \ \ / / _ \/ _` / __|    | | | | | | |";
 
-    const BANNER_BOT: &str = r#"        | \__/\ (_) | | | \ V /  __/ (_| \__ \    \ \_/ / |_| |
+    const BANNER_BOT: &str = r"        | \__/\ (_) | | | \ V /  __/ (_| \__ \    \ \_/ / |_| |
          \____/\___/|_| |_|\_/ \___|\__, |___/     \___/ \__, |
                                        | |                __/ |
                                         \|                \__/ 
-"#;
+";
     let banner: String = format!(
         "{}{}{}{}",
         "\n",

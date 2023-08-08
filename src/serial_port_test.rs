@@ -13,54 +13,7 @@ use tokio::time::sleep;
 use tokio_serial::SerialStream;
 use tokio_serial::{FlowControl, SerialPortType};
 
-extern crate core;
-use core::ffi::c_int;
-
-extern "C" {
-    fn init_hdlc();
-    /*
-     * Wraps a PPP packet into an HDLC frame and write it to a buffer.
-     *
-     * @param[out] frame    The buffer to store the encoded frame.
-     * @param[in]  frmsize  The output buffer size.
-     * @param[in]  packet   The buffer containing the packet.
-     * @param[in]  pktsize  The input packet size.
-     * @return              the number of bytes written to the buffer (i.e. the
-     *                      HDLC-encoded frame length) or ERR_HDLC_BUFFER_TOO_SMALL
-     *                      if the output buffer is too small
-     *
-     *   ssize_t hdlc_encode(uint8_t *frame, size_t frmsize,
-     *       const uint8_t *packet, size_t pktsize)
-     */
-    fn hdlc_encode(frame: *mut u8, frmsize: usize, packet: *const u8, pktsize: usize) -> isize;
-
-    /*
-     * Finds the first frame in a buffer, starting search at start.
-     *
-     * @param[in]     buffer   The input buffer.
-     * @param[in]     bufsize  The input buffer size.
-     * @param[in,out] start    Offset of the beginning of the first frame in the buffer.
-     * @return                 the length of the first frame or ERR_HDLC_NO_FRAME_FOUND
-     *                         if no frame is found.
-     *
-     *    ssize_t hdlc_find_frame(const uint8_t *buffer, size_t bufsize, off_t *start)
-     */
-    fn hdlc_find_frame(buffer: *const u8, bufsize: usize, start: *mut u8);
-
-    /*
-     * Extracts the first PPP packet found in the input buffer.
-     *
-     * The frame should be passed without its surrounding Flag Sequence (0x7e) bytes.
-     *
-     * @param[in]  frame    The buffer containing the encoded frame.
-     * @param[in]  frmsize  The input buffer size.
-     * @param[out] packet   The buffer to store the decoded packet.
-     * @param[in]  pktsize  The output packet buffer size.
-     * @return              the number of bytes written to the output packet
-     *                      buffer, or < 0 in case of error.
-     */
-    fn hdlc_decode(frame: *const u8, frmsize: usize, packet: *mut u8, pktsize: usize) -> isize;
-}
+use crate::hdlc_ffi::*;
 
 #[derive(Debug, Clone)]
 enum Msg {
@@ -268,43 +221,6 @@ async fn test_serial(path: String, baud_rate: u32) -> Result<()> {
 use libc::size_t;
 
 pub async fn serial_port_test(first_port: &str, second_port: &str, baud_rate: u32) -> Result<()> {
-    println!("!!!!!!!!!!!!!!!!!!!!! UNSAFE !!!!!!!!!!!!!!!!!!!!!!!!!");
-    unsafe {
-        init_hdlc();
-    }
-
-    let mut frame: Vec<u8> = vec![0; 256];
-    let packet_in: Vec<u8> = vec![0x40, 0x41, 0x42, 0x7e, 0x44, 0x45, 0x46, 0x47, 0x48];
-    let mut packet_out: Vec<u8> = vec![0; 256];
-
-    fn hdlc_encode_ffi(frame: &mut [u8], packet: &[u8]) -> isize {
-        let p_frame = frame.as_mut_ptr();
-        let p_packet = packet.as_ptr();
-        let size = unsafe {
-            let size = hdlc_encode(p_frame, frame.len() as size_t, p_packet, packet.len());
-            size
-        };
-        size
-    }
-
-    fn hdlc_decode_ffi(frame: &[u8], packet: &mut [u8]) -> isize {
-        let p_frame = frame.as_ptr();
-        let p_packet = packet.as_mut_ptr();
-        let size = unsafe {
-            let size = hdlc_decode(p_frame, frame.len() as size_t, p_packet, packet.len());
-            size
-        };
-        size
-    }
-
-    let size = hdlc_encode_ffi(&mut frame, &packet_in) as usize;
-    println!("!!!!!!!!!!!! {size} !!!!!!!!!!!!!!!!!");
-    println!("{:x?}", frame);
-
-    let size = hdlc_decode_ffi(&frame, &mut packet_out[0..size]);
-    println!("!!!!!!!!!!!! {size} !!!!!!!!!!!!!!!!!");
-    println!("{:x?}", packet_out);
-
     select! {
         res = test_serial(first_port.to_string(), baud_rate) => {
             debug!("{:?}", res);
