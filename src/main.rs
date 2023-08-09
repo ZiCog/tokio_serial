@@ -7,6 +7,7 @@ mod serial_port_test;
 use serial_port_test::{list_serial_ports, serial_port_test};
 
 mod crc;
+mod hdlc;
 mod hdlc_ffi;
 
 /// Simple program to test a serial ports
@@ -36,6 +37,10 @@ struct Args {
 
 #[tokio::main]
 async fn main() {
+    let ix: isize = -100;
+    let ux = ix as usize;
+    println!("!!!!!!!!! {ux}");
+
     env_logger::init();
 
     let args: Args = Args::parse();

@@ -1,7 +1,8 @@
 extern crate core;
+use anyhow::{Context, Result};
 use core::ffi::c_int;
 
-use libc::{size_t, ssize_t};
+use libc::{off_t, size_t, ssize_t};
 
 extern "C" {
     fn init_hdlc();
@@ -32,7 +33,7 @@ extern "C" {
      *
      *    ssize_t hdlc_find_frame(const uint8_t *buffer, size_t bufsize, off_t *start)
      */
-    fn hdlc_find_frame(buffer: *const u8, bufsize: size_t, start: *mut u8) -> ssize_t;
+    fn hdlc_find_frame(buffer: *const u8, bufsize: size_t, start: *mut off_t) -> ssize_t;
 
     /*
      * Extracts the first PPP packet found in the input buffer.
@@ -55,38 +56,87 @@ pub fn init_hdlc_ffi() {
     }
 }
 
-pub fn hdlc_encode_ffi(frame: &mut [u8], packet: &[u8]) -> isize {
+pub fn hdlc_encode_ffi(frame: &mut [u8], packet: &[u8]) -> Result<usize, isize> {
     let p_frame = frame.as_mut_ptr();
     let p_packet = packet.as_ptr();
-    unsafe { hdlc_encode(p_frame, frame.len() as size_t, p_packet, packet.len()) }
+    let res = unsafe { hdlc_encode(p_frame, frame.len() as size_t, p_packet, packet.len()) };
+    if res < 0 {
+        Err(res)
+    } else {
+        Ok(res as usize)
+    }
 }
 
-pub fn hdlc_decode_ffi(frame: &[u8], packet: &mut [u8]) -> isize {
+pub fn hdlc_find_frame_ffi(buffer: &[u8]) -> Result<&[u8], isize> {
+    let mut offset: i64 = 0;
+    let p_offset = &mut offset as *mut i64;
+
+    let p_buffer = buffer.as_ptr();
+    let res = unsafe { hdlc_find_frame(p_buffer, buffer.len(), p_offset) };
+    if res < 0 {
+        Err(res)
+    } else {
+        Ok(&buffer[offset as usize..offset as usize + res as usize])
+    }
+}
+
+pub fn hdlc_decode_ffi(frame: &[u8], packet: &mut [u8]) -> Result<usize, isize> {
     let p_frame = frame.as_ptr();
     let p_packet = packet.as_mut_ptr();
-    unsafe { hdlc_decode(p_frame, frame.len() as size_t, p_packet, packet.len()) }
+    let res = unsafe { hdlc_decode(p_frame, frame.len() as size_t, p_packet, packet.len()) };
+    if res < 0 {
+        Err(res)
+    } else {
+        Ok(res as usize)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::hdlc_ffi::*;
+    use super::*;
 
     #[test]
     fn test_hdlc_encode_ffi() {
         init_hdlc_ffi();
 
-        let mut frame: Vec<u8> = vec![0; 256];
-        let packet_in: Vec<u8> = vec![0x40, 0x41, 0x42, 0x7e, 0x44, 0x45, 0x46, 0x47, 0x48];
+        let data: Vec<u8> = vec![0x40, 0x41, 0x42, 0x7e, 0x44, 0x45, 0x46, 0x47, 0x48];
+        let mut encoded: Vec<u8> = vec![0; 256];
+
+        let size = hdlc_encode_ffi(&mut encoded, &data).unwrap();
+
+        let res = hdlc_find_frame_ffi(&encoded[0..size]);
+        let frame = match res {
+            Ok(frame) => frame,
+            Err(e) => {
+                panic!();
+            }
+        };
+
         let mut packet_out: Vec<u8> = vec![0; 256];
+        let size = hdlc_decode_ffi(&frame, &mut packet_out[0..size]).unwrap();
+        assert_eq!(packet_out[0..size], data);
+    }
+    #[test]
+    fn test_hdlc_find_frame_ffi() {
+        init_hdlc_ffi();
 
-        let size = hdlc_encode_ffi(&mut frame, &packet_in) as usize;
-        println!("!!!!!!!!!!!! {size} !!!!!!!!!!!!!!!!!");
-        println!("{:x?}", frame);
+        let packet_in: Vec<u8> = vec![0x40, 0x41, 0x42, 0x44, 0x45, 0x46, 0x47, 0x48];
+        let res = hdlc_find_frame_ffi(&packet_in);
+        match res {
+            Ok(_) => panic!(),
+            Err(e) => assert_eq!(e, -2),
+        }
 
-        let size = hdlc_decode_ffi(&frame, &mut packet_out[0..size]);
-        println!("!!!!!!!!!!!! {size} !!!!!!!!!!!!!!!!!");
-        println!("{:x?}", packet_out);
-
-        assert_eq!(1, 1);
+        let packet_in: Vec<u8> = vec![
+            0x55, 0x55, 0x55, 0x7e, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x7e,
+            0xaa, 0xaa, 0xaa,
+        ];
+        let res = hdlc_find_frame_ffi(&packet_in);
+        match res {
+            Ok(frame) => {
+                assert_eq!(frame, &packet_in[4..=12])
+            }
+            Err(e) => panic!(),
+        }
     }
 }
