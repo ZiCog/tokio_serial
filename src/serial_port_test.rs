@@ -85,9 +85,6 @@ async fn line_reader(reader: ReadHalf<SerialStream>, tx: Sender<Msg>) -> Result<
     }
 }
 
-// PPP framing taken from here:
-// http://www.acacia-net.com/wwwcla/protocol/ip_ppp.htm
-
 async fn frame_reader(
     mut reader: impl tokio::io::AsyncRead + Unpin,
     tx: Sender<Msg>,
