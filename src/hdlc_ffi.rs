@@ -56,14 +56,18 @@ pub fn init_hdlc_ffi() {
     }
 }
 
-pub fn hdlc_encode_ffi(frame: &mut [u8], packet: &[u8]) -> Result<usize, isize> {
-    let p_frame = frame.as_mut_ptr();
+pub fn hdlc_encode_ffi(packet: &[u8]) -> Result<Vec<u8>, isize> {
+    let estimated_encoded_size = (9 + 2 * (packet.len()));
+    let mut encoded: Vec<u8> = vec![0; estimated_encoded_size];
+
+    let p_encoded = encoded.as_mut_ptr();
     let p_packet = packet.as_ptr();
-    let res = unsafe { hdlc_encode(p_frame, frame.len() as size_t, p_packet, packet.len()) };
-    if res < 0 {
-        Err(res)
+    let len = unsafe { hdlc_encode(p_encoded, encoded.len() as size_t, p_packet, packet.len()) };
+    if len < 0 {
+        Err(len)
     } else {
-        Ok(res as usize)
+        encoded.truncate(len as usize);
+        Ok(encoded)
     }
 }
 
@@ -99,12 +103,12 @@ mod tests {
     fn test_hdlc_encode_ffi() {
         init_hdlc_ffi();
 
-        let data: Vec<u8> = vec![0x40, 0x41, 0x42, 0x7e, 0x44, 0x45, 0x46, 0x47, 0x48];
-        let mut encoded: Vec<u8> = vec![0; 256];
+        let buffer_in: Vec<u8> = vec![0x40, 0x41, 0x42, 0x7e, 0x44, 0x45, 0x46, 0x47, 0x48];
 
-        let size = hdlc_encode_ffi(&mut encoded, &data).unwrap();
+        let encoded = hdlc_encode_ffi(&buffer_in).unwrap();
+        println!("encoded: {:x?}", encoded);
 
-        let res = hdlc_find_frame_ffi(&encoded[0..size]);
+        let res = hdlc_find_frame_ffi(&encoded);
         let frame = match res {
             Ok(frame) => frame,
             Err(e) => {
@@ -112,29 +116,29 @@ mod tests {
             }
         };
 
-        let mut packet_out: Vec<u8> = vec![0; 256];
-        let size = hdlc_decode_ffi(&frame, &mut packet_out[0..size]).unwrap();
-        assert_eq!(packet_out[0..size], data);
+        let mut buffer_out: Vec<u8> = vec![0; 256];
+        let size = hdlc_decode_ffi(&frame, &mut buffer_out).unwrap();
+        assert_eq!(buffer_out[0..size], buffer_in);
     }
     #[test]
     fn test_hdlc_find_frame_ffi() {
         init_hdlc_ffi();
 
-        let packet_in: Vec<u8> = vec![0x40, 0x41, 0x42, 0x44, 0x45, 0x46, 0x47, 0x48];
-        let res = hdlc_find_frame_ffi(&packet_in);
+        let data: Vec<u8> = vec![0x40, 0x41, 0x42, 0x44, 0x45, 0x46, 0x47, 0x48];
+        let res = hdlc_find_frame_ffi(&data);
         match res {
             Ok(_) => panic!(),
             Err(e) => assert_eq!(e, -2),
         }
 
-        let packet_in: Vec<u8> = vec![
+        let buffer_in: Vec<u8> = vec![
             0x55, 0x55, 0x55, 0x7e, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x7e,
             0xaa, 0xaa, 0xaa,
         ];
-        let res = hdlc_find_frame_ffi(&packet_in);
+        let res = hdlc_find_frame_ffi(&buffer_in);
         match res {
             Ok(frame) => {
-                assert_eq!(frame, &packet_in[4..=12])
+                assert_eq!(frame, &buffer_in[4..=12])
             }
             Err(e) => panic!(),
         }

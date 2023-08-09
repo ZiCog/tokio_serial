@@ -1,3 +1,6 @@
+// PPP framing taken from here:
+// http://www.acacia-net.com/wwwcla/protocol/ip_ppp.htm
+
 // The PPP start sequence.
 pub const FLAG: u8 = 0x7e;
 pub const CONTROL_ESCAPE: u8 = 0x7d;
@@ -13,6 +16,14 @@ pub struct Framer {
     state: FramerState,
 }
 use std::mem;
+
+pub fn in_sending_accm(byte: u8) -> bool {
+    byte < 0x20 || (byte & 0x7f) == 0x7d || (byte & 0x7f) == 0x7e
+}
+
+pub fn in_receiving_accm(byte: u8) -> bool {
+    byte < 0x20
+}
 
 impl Framer {
     pub fn new() -> Self {

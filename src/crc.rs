@@ -41,6 +41,6 @@ pub fn crc(mut sum: u16, seq: &[u8]) -> u16 {
 }
 
 //
-// Precalculated CRC for Address and Control fields of [0xff, 0x03]ß;
+// Precalculated CRC for Address and Control fields of [0xff, 0x03];
 //
 pub const ADDRESS_CONTROL_CHECKSUM: u16 = 0x3de3;

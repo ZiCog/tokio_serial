@@ -35,11 +35,34 @@ struct Args {
     protobuf: bool,
 }
 
+use crc::*;
+use hdlc::*;
+use hdlc_ffi::*;
+
 #[tokio::main]
 async fn main() {
-    let ix: isize = -100;
-    let ux = ix as usize;
-    println!("!!!!!!!!! {ux}");
+    // Build a "message" containing all possible byte values.
+    let mut data: Vec<u8> = vec![];
+    for byte in 0x00u8..=0xFFu8 {
+        data.push(byte);
+    }
+    println!("Data in: {:x?}", data);
+
+    init_hdlc_ffi();
+
+    let mut encoded = hdlc_encode_ffi(&data).unwrap();
+    println!("Encoded: {:x?}", encoded);
+
+    let mut framer = Framer::new();
+    for byte in encoded {
+        if let Some(frame) = framer.find_frame(byte) {
+            println!("Data out: {:x?}", &frame);
+
+            let crc = crc(0xffff, &frame);
+            println!("CRC: {:x?}", crc);
+            assert_eq!(crc, 0xf0b8);
+        }
+    }
 
     env_logger::init();
 
