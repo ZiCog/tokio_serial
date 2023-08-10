@@ -1,6 +1,5 @@
 extern crate core;
-use anyhow::{Context, Result};
-use core::ffi::c_int;
+use anyhow::Result;
 
 use libc::{off_t, size_t, ssize_t};
 
@@ -112,7 +111,7 @@ mod tests {
         let frame = match res {
             Ok(frame) => frame,
             Err(e) => {
-                panic!();
+                panic!("{e}");
             }
         };
 
@@ -140,7 +139,7 @@ mod tests {
             Ok(frame) => {
                 assert_eq!(frame, &buffer_in[4..=12])
             }
-            Err(e) => panic!(),
+            Err(e) => panic!("{e}"),
         }
     }
 }

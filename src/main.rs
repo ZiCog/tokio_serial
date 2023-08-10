@@ -7,6 +7,7 @@ mod serial_port_test;
 use serial_port_test::{list_serial_ports, serial_port_test};
 
 mod crc;
+mod gray_code;
 mod hdlc;
 mod hdlc_ffi;
 
@@ -36,11 +37,15 @@ struct Args {
 }
 
 use crc::*;
+use gray_code::*;
 use hdlc::*;
 use hdlc_ffi::*;
 
 #[tokio::main]
 async fn main() {
+    // An exerise in single track gray codes.
+    single_track_gray_code();
+
     // Build a "message" containing all possible byte values.
     let mut data: Vec<u8> = vec![];
     for byte in 0x00u8..=0xFFu8 {
@@ -50,7 +55,7 @@ async fn main() {
 
     init_hdlc_ffi();
 
-    let mut encoded = hdlc_encode_ffi(&data).unwrap();
+    let encoded = hdlc_encode_ffi(&data).unwrap();
     println!("Encoded: {:x?}", encoded);
 
     let mut framer = Framer::new();
