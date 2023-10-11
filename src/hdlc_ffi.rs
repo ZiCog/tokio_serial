@@ -56,7 +56,7 @@ pub fn init_hdlc_ffi() {
 }
 
 pub fn hdlc_encode_ffi(packet: &[u8]) -> Result<Vec<u8>, isize> {
-    let estimated_encoded_size = (9 + 2 * (packet.len()));
+    let estimated_encoded_size = 9 + 2 * (packet.len());
     let mut encoded: Vec<u8> = vec![0; estimated_encoded_size];
 
     let p_encoded = encoded.as_mut_ptr();

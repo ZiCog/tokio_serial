@@ -48,24 +48,11 @@ fn epoch_seconds() -> Result<u64> {
 }
 
 async fn writer(mut writer: impl tokio::io::AsyncWrite + Unpin) -> Result<()> {
-    //    async fn writer(mut writer: WriteHalf<SerialStream>) -> Result<()> {
-    let mut words_of_cato: Vec<u8> = "Carthāgō dēlenda est\n".into();
-    let mut words_of_jack: Vec<u8> = "All work and no play makes Jack a dull boy.\n".into();
-
-    let mut msg: Vec<u8> = vec![];
-    msg.push(FLAG);
-    msg.append(&mut words_of_cato);
-    msg.push(FLAG);
-    msg.push(FLAG);
-    msg.append(&mut words_of_jack);
-
-    writer
-        .write(b"Bytes before FLAG should be ignored.")
-        .await
-        .context("Error on writing")?;
+    let msg: &[u8] = include!("../radar_capture.cap");
 
     loop {
-        writer.write(&msg).await.context("Error on writing")?;
+        println!("Writing:\n{:x?}", msg);
+        writer.write(msg).await.context("Error on writing")?;
         sleep(Duration::from_millis(100)).await;
     }
 }
@@ -125,10 +112,6 @@ fn open_serial(
 }
 
 async fn test_serial(path: String, baud_rate: u32) -> Result<()> {
-    type SerialReader = ReadHalf<SerialStream>;
-    type SerialWriter = WriteHalf<SerialStream>;
-    type SerialStreamHalves = (SerialReader, SerialWriter);
-
     println!("Using serial port: {path} at {baud_rate} baud.");
 
     loop {
@@ -158,13 +141,9 @@ async fn test_serial(path: String, baud_rate: u32) -> Result<()> {
 
 use libc::size_t;
 
-pub async fn serial_port_test(first_port: &str, second_port: &str, baud_rate: u32) -> Result<()> {
+pub async fn serial_port_test(port: &str, baud_rate: u32) -> Result<()> {
     select! {
-        res = test_serial(first_port.to_string(), baud_rate) => {
-            debug!("{:?}", res);
-            res
-        }
-        res = test_serial(second_port.to_string(), baud_rate) => {
+        res = test_serial(port.to_string(), baud_rate) => {
             debug!("{:?}", res);
             res
         }

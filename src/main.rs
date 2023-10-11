@@ -19,21 +19,13 @@ struct Args {
     #[arg(short, long, default_value_t = 921600)]
     baud_rate: u32,
 
-    /// First serial port
+    /// Serial port
     #[arg(short, long, default_value = "/dev/ttyUSB0")]
-    first_port: String,
-
-    /// Second Serial port
-    #[arg(short, long, default_value = "/dev/ttyUSB1")]
-    second_port: String,
+    port: String,
 
     /// List serial ports
     #[arg(short, long, default_value_t = false)]
     list: bool,
-
-    /// Use protobuf messaging.
-    #[arg(short, long, default_value_t = false)]
-    protobuf: bool,
 }
 
 use crc::*;
@@ -41,11 +33,19 @@ use gray_code::*;
 use hdlc::*;
 use hdlc_ffi::*;
 
-#[tokio::main]
-async fn main() {
+use std::ffi::CString;
+use std::os::raw::c_char;
+
+fn test_protobuf() {
+    protobuf_experiment::protobuf_experiment();
+}
+
+fn test_gray_code() {
     // An exerise in single track gray codes.
     single_track_gray_code();
+}
 
+fn test_hdlc() {
     // Build a "message" containing all possible byte values.
     let mut data: Vec<u8> = vec![];
     for byte in 0x00u8..=0xFFu8 {
@@ -68,22 +68,22 @@ async fn main() {
             assert_eq!(crc, 0xf0b8);
         }
     }
+}
 
+#[tokio::main]
+async fn main() {
     env_logger::init();
 
     let args: Args = Args::parse();
 
     conveqs_banner();
 
-    if args.protobuf {
-        protobuf_experiment::protobuf_experiment();
-    }
     if args.list {
         if let Err(e) = list_serial_ports() {
             error!("{e:?}");
         }
     } else {
-        let res = serial_port_test(&args.first_port, &args.second_port, args.baud_rate).await;
+        let res = serial_port_test(&args.port, args.baud_rate).await;
         error!("serial_port_test failed with: {:?}", res);
     }
 }
@@ -91,15 +91,15 @@ async fn main() {
 use colored::Colorize;
 fn conveqs_banner() {
     // Doom font (tweaked) from:  https://patorjk.com/software/taag/#p=display&f=Graffiti&t=Conveqs
-    const BANNER_TOP: &str = r"         _____                                     _____       
-        /  __ \                                   |  _  |      
-        | /  \/ ___  _ ____   _____  __ _ ___     | | | |_   _ 
+    const BANNER_TOP: &str = r"         _____                                     _____
+        /  __ \                                   |  _  |
+        | /  \/ ___  _ ____   _____  __ _ ___     | | | |_   _
         | |    / _ \| '_ \ \ / / _ \/ _` / __|    | | | | | | |";
 
     const BANNER_BOT: &str = r"        | \__/\ (_) | | | \ V /  __/ (_| \__ \    \ \_/ / |_| |
          \____/\___/|_| |_|\_/ \___|\__, |___/     \___/ \__, |
                                        | |                __/ |
-                                        \|                \__/ 
+                                        \|                \__/
 ";
     let banner: String = format!(
         "{}{}{}{}",
